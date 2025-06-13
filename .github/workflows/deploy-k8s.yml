@@ -24,16 +24,16 @@ jobs:
       - name: Checkout workflow repo (my-cicd-configs)
         uses: actions/checkout@v4
 
-      - name: Checkout deployment manifests repo (bittema-pipeline-config)
+      - name: Checkout manifests repo (bittema-pipeline-config)
         uses: actions/checkout@v4
         with:
           repository: irbbook/bittema-pipeline-config
-          path: bittema-pipeline-config
-          token: ${{ secrets.GITHUB_TOKEN }}
+          path: bpc  # 👈 path ที่ไม่ซ้ำชื่อ repo
 
       - name: Debug - List files in workspace
         run: |
-          pwd
+          echo "PWD: $(pwd)"
+          echo "List root:"
           ls -R .
 
       - name: Set up Kubeconfig
@@ -49,24 +49,16 @@ jobs:
 
       - name: Apply Kubernetes Manifests
         run: |
-          OVERLAY_PATH="${{ github.workspace }}/bittema-pipeline-config/k8s/overlays/${{ github.event.inputs.environment }}"
-          echo "Attempting to build Kustomize from absolute path: $OVERLAY_PATH"
+          OVERLAY_PATH="${{ github.workspace }}/bpc/k8s/overlays/${{ github.event.inputs.environment }}"
+          echo "Attempting to build Kustomize from: $OVERLAY_PATH"
 
           if [ ! -d "$OVERLAY_PATH" ]; then
-            echo "ERROR: Directory not found: $OVERLAY_PATH"
+            echo "❌ ERROR: Directory not found: $OVERLAY_PATH"
             exit 1
           fi
 
           kustomize build "$OVERLAY_PATH" \
             | sed "s|YOUR_DOCKER_IMAGE_PLACEHOLDER|${{ github.event.inputs.image_tag }}|g" \
             | kubectl apply -f -
-        env:
-          KUBECONFIG: ~/.kube/config
-
-      - name: Verify Deployment (Optional)
-        run: |
-          echo "Verifying deployment for ${{ github.event.inputs.environment }}..."
-          kubectl get deployments -n default
-          kubectl rollout status deployment/spring-app-deployment -n default
         env:
           KUBECONFIG: ~/.kube/config
