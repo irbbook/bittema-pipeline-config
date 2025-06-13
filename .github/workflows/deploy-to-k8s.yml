@@ -1,7 +1,7 @@
 name: Deploy to Kubernetes
 
 on:
-  workflow_dispatch: # สามารถ trigger ด้วยมือ
+  workflow_dispatch:
   push:
     branches:
       - main
@@ -21,6 +21,7 @@ jobs:
 
       - name: Configure kubeconfig
         run: |
+          mkdir -p $HOME/.kube
           echo "${{ secrets.KUBECONFIG_CONTENT }}" > $HOME/.kube/config
           chmod 600 $HOME/.kube/config
 
@@ -28,5 +29,3 @@ jobs:
         run: |
           kubectl apply -f k8s/deployment.yaml
           kubectl apply -f k8s/service.yaml
-          # ถ้ามี ingress ใช้บรรทัดนี้
-          # kubectl apply -f k8s/ingress.yaml
