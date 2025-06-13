@@ -48,10 +48,19 @@ jobs:
 
       - name: Apply Kubernetes Manifests for ${{ github.event.inputs.environment }}
         run: |
-          ENV_PATH="./k8s/overlays/${{ github.event.inputs.environment }}" # <--- ตรวจสอบพาธนี้ให้ดี
-          echo "Applying manifests from: $ENV_PATH"
+          # ใช้ Environment Variable GITHUB_WORKSPACE ซึ่งเป็น Absolute Path ของ Root Repository ที่ Checkout มา
+          # GITHUB_WORKSPACE จะมีค่าเป็น /home/runner/work/bittema-pipeline-config/bittema-pipeline-config
+          OVERLAY_PATH="${{ github.workspace }}/k8s/overlays/${{ github.event.inputs.environment }}"
+          echo "Attempting to build Kustomize from absolute path: $OVERLAY_PATH"
 
-          kustomize build $ENV_PATH \
+          # ตรวจสอบว่าไดเรกทอรีนี้มีอยู่จริงหรือไม่ ก่อนที่จะเรียก kustomize
+          if [ ! -d "$OVERLAY_PATH" ]; then
+            echo "ERROR: The directory '$OVERLAY_PATH' does not exist! Please check your repository structure or workflow path."
+            exit 1
+          fi
+
+          # รัน kustomize build ด้วย Absolute Path
+          kustomize build "$OVERLAY_PATH" \
             | sed "s|YOUR_DOCKER_IMAGE_PLACEHOLDER|${{ github.event.inputs.image_tag }}|g" \
             | kubectl apply -f -
         env:
