@@ -48,7 +48,7 @@ jobs:
 
       - name: Apply Kubernetes Manifests for ${{ github.event.inputs.environment }}
         run: |
-          ENV_PATH="k8s/overlays/${{ github.event.inputs.environment }}" # <--- ตรวจสอบพาธนี้ให้ดี
+          ENV_PATH="bittema-pipeline-config/k8s/overlays/${{ github.event.inputs.environment }}" # <--- ตรวจสอบพาธนี้ให้ดี
           echo "Applying manifests from: $ENV_PATH"
 
           kustomize build $ENV_PATH \
