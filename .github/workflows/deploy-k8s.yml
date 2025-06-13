@@ -27,7 +27,7 @@ jobs:
       - name: Checkout deployment manifests repo (bittema-pipeline-config)
         uses: actions/checkout@v4
         with:
-          repository: your-org-or-username/bittema-pipeline-config
+          repository: irbbook/bittema-pipeline-config
           path: bittema-pipeline-config
           token: ${{ secrets.GITHUB_TOKEN }}
 
