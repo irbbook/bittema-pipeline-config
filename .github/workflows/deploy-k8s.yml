@@ -15,9 +15,6 @@ on:
           - dev
           - prod
 
-env:
-  KUBE_CONFIG: /tmp/kubeconfig
-
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -36,11 +33,13 @@ jobs:
         with:
           kustomize-version: '5.3.0'
 
-      - name: Decode and setup kubeconfig
-        run: echo "${{ secrets.KUBECONFIG_BASE64 }}" | base64 -d > $KUBE_CONFIG
-
-      - name: Set KUBECONFIG env
-        run: echo "KUBECONFIG=$KUBE_CONFIG" >> $GITHUB_ENV
+      - name: Set up Kubeconfig
+        run: |
+          mkdir -p ~/.kube
+          echo "${{ secrets.KUBECONFIG_BASE64 }}" | base64 --decode > ~/.kube/config
+          chmod 600 ~/.kube/config
+        env:
+          KUBECONFIG_BASE64: ${{ secrets.KUBECONFIG_BASE64 }}
 
       - name: Set image in kustomization
         run: |
