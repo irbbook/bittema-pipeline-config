@@ -24,7 +24,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up kubectl
-        uses: google-github-actions/setup-kubectl@v1
+        uses: azure/setup-kubectl@v3
         with:
           version: '1.28.0'
 
