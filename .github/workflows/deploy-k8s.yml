@@ -16,6 +16,24 @@ on:
           - dev
           - prod
 
+# .github/workflows/deploy-k8s.yml (ใน my-cicd-configs repo)
+name: Deploy Spring Boot to Kubernetes
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: 'Docker Image Tag to deploy (e.g., ghcr.io/owner/repo/image:sha)'
+        required: true
+      environment:
+        description: 'Select deployment environment'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - prod
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
