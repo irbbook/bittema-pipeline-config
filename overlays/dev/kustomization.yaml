@@ -1,0 +1,35 @@
+# k8s/overlays/dev/kustomization.yaml
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../base # Reference to the base manifests
+
+patches:
+  - target:
+      kind: Deployment
+      name: spring-app-deployment
+    patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 1 # Only 1 replica for development
+      - op: replace
+        path: /spec/template/spec/containers/0/env/0/value
+        value: dev # Set Spring profile to 'dev'
+      - op: add # Add an environment label
+        path: /spec/template/metadata/labels/environment
+        value: dev
+
+# You might want to expose dev environment with a NodePort for easy access
+# patchesStrategicMerge:
+#   - |-
+#     apiVersion: v1
+#     kind: Service
+#     metadata:
+#       name: spring-app-service
+#     spec:
+#       type: NodePort
+#       ports:
+#       - port: 80
+#         targetPort: 8080
+#         nodePort: 30080 # Choose an available NodePort (30000-32767)
