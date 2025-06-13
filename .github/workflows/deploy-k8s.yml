@@ -1,15 +1,11 @@
 name: Deploy Spring Boot to Kubernetes
 
-# กำหนดเงื่อนไขการ Trigger Workflow
 on:
-  # อนุญาตให้รัน Workflow ด้วยมือจาก GitHub UI
   workflow_dispatch:
     inputs:
-      # ให้ผู้ใช้ระบุ Docker Image Tag ที่ต้องการ Deploy (จาก Build Workflow)
       image_tag:
         description: 'Docker Image Tag to deploy (e.g., ghcr.io/owner/repo/image:sha)'
         required: true
-      # ให้ผู้ใช้เลือก Environment ที่ต้องการ Deploy
       environment:
         description: 'Select deployment environment'
         required: true
@@ -19,80 +15,39 @@ on:
           - dev
           - prod
 
-# ส่วนของ Jobs ที่จะรันใน Workflow
+env:
+  KUBE_CONFIG: /tmp/kubeconfig
+
 jobs:
   deploy:
-    runs-on: ubuntu-latest # รัน Job นี้บน GitHub-hosted runner ที่ใช้ Ubuntu Linux
-    
-    # กำหนดสิทธิ์ที่จำเป็นสำหรับ Job นี้
-    # contents: read - เพื่ออ่านไฟล์จาก Repository (เช่น Kubernetes Manifests)
-    permissions:
-      contents: read
+    runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout deployment configs # Step ที่ 1: Checkout โค้ดของ Repository นี้ (my-cicd-configs)
+      - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@v4
         with:
-          # Checkout โค้ดลงใน Root ของ Working Directory เพื่อหลีกเลี่ยงพาธซ้ำซ้อน
-          path: . 
+          version: '1.29.0'
 
-      - name: Debug - List files in workspace # Step ที่ 2: Debugging - แสดงโครงสร้างไฟล์บน Runner
+      - name: Set up kustomize
+        uses: imranismail/setup-kustomize@v2
+        with:
+          kustomize-version: '5.3.0'
+
+      - name: Decode and setup kubeconfig
+        run: echo "${{ secrets.KUBECONFIG_BASE64 }}" | base64 -d > $KUBE_CONFIG
+
+      - name: Set KUBECONFIG env
+        run: echo "KUBECONFIG=$KUBE_CONFIG" >> $GITHUB_ENV
+
+      - name: Set image in kustomization
         run: |
-          echo "Current working directory:"
-          pwd
-          echo "Files and directories in workspace:"
-          ls -R .
+          cd k8s/overlays/${{ github.event.inputs.environment }}
+          kustomize edit set image springboot-app=${{ github.event.inputs.image_tag }}
 
-      - name: Set up Kubeconfig # Step ที่ 3: ตั้งค่า Kubernetes Configuration เพื่อเชื่อมต่อ Cluster
+      - name: Deploy to Kubernetes
         run: |
-          mkdir -p ~/.kube # สร้างโฟลเดอร์สำหรับ kubeconfig
-          # ถอดรหัส Base64 ของ Kubeconfig Secret แล้วบันทึกลงไฟล์
-          echo "${{ secrets.KUBECONFIG_BASE64 }}" | base64 --decode > ~/.kube/config
-          chmod 600 ~/.kube/config # ตั้งค่าสิทธิ์ไฟล์ให้ปลอดภัย
-        env:
-          # KUBECONFIG_BASE64 เป็น Secret ที่เก็บ kubeconfig ของคุณ
-          KUBECONFIG_BASE64: ${{ secrets.KUBECONFIG_BASE64 }}
-
-      - name: Install Kustomize # Step ที่ 4: ติดตั้ง Kustomize (เครื่องมือสำหรับจัดการ Kubernetes Manifests)
-        run: |
-          curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh" | bash
-          sudo mv kustomize /usr/local/bin/ # ย้าย binary ไปยัง PATH ที่สามารถเรียกใช้ได้
-
-      - name: Apply Kubernetes Manifests for ${{ github.event.inputs.environment }} # Step ที่ 5: Deploy Application ไปยัง Kubernetes
-        run: |
-          # เปลี่ยน directory ไปยัง Root ของ Repository ที่ Checkout มา
-          # นี่คือที่ Kustomize manifests ของคุณอยู่
-          cd "${{ github.workspace }}"
-          echo "Changed current working directory to: $(pwd)" 
-
-          # กำหนดพาธไปยังโฟลเดอร์ Overlay ของ Environment ที่เลือก
-          # เช่น 'k8s/overlays/dev' หรือ 'k8s/overlays/prod'
-          ENV_PATH="k8s/overlays/${{ github.event.inputs.environment }}"
-          echo "Attempting to build Kustomize from path: $ENV_PATH"
-
-          # ตรวจสอบว่าไดเรกทอรี Kustomize Overlay มีอยู่จริงหรือไม่
-          if [ ! -d "$ENV_PATH" ]; then
-            echo "CRITICAL ERROR: Directory '$ENV_PATH' does not exist in the current working directory."
-            echo "Current Working Directory is: $(pwd)"
-            echo "Please ensure the 'k8s' folder and its subdirectories (base, overlays/dev, overlays/prod) are committed to the root of your repository."
-            exit 1 # ถ้าหาไม่เจอ ให้ Workflow ล้มเหลวทันที
-          fi
-
-          # รัน kustomize build เพื่อสร้าง Kubernetes Manifests ที่สมบูรณ์สำหรับ Environment นั้นๆ
-          # จากนั้น pipe ผลลัพธ์ไปยัง sed เพื่อแทนที่ placeholder ของ Docker Image Tag
-          # สุดท้าย pipe ผลลัพธ์ที่แก้ไขแล้วไปยัง kubectl apply เพื่อ Deploy
-          kustomize build "$ENV_PATH" \
-            | sed "s|YOUR_DOCKER_IMAGE_PLACEHOLDER|${{ github.event.inputs.image_tag }}|g" \
-            | kubectl apply -f -
-        env:
-          KUBECONFIG: ~/.kube/config # บอก kubectl ให้ใช้ kubeconfig ที่เราตั้งค่าไว้
-
-      - name: Verify Deployment (Optional) # Step ที่ 6: ตรวจสอบสถานะการ Deploy (ไม่บังคับ)
-        run: |
-          echo "Verifying deployment for ${{ github.event.inputs.environment }} environment..."
-          kubectl get deployments -n default # ดูสถานะ Deployment ใน default namespace
-          kubectl get services -n default   # ดูสถานะ Service ใน default namespace
-          # รอให้ Deployment พร้อมใช้งาน (เปลี่ยน spring-app-deployment เป็นชื่อ Deployment ของคุณ)
-          kubectl rollout status deployment/spring-app-deployment -n default
-        env:
-          KUBECONFIG: ~/.kube/config
+          cd k8s/overlays/${{ github.event.inputs.environment }}
+          kubectl apply -k .

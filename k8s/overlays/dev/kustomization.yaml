@@ -1,28 +1,4 @@
-# k8s/overlays/dev/kustomization.yaml
-apiVersion: kustomize.config.k8s.io/v1beta1
-kind: Kustomization
-
 resources:
-  - ../../base # <<<< สำคัญมาก: ต้องเป็น '../../base' เท่านั้น! ไม่ใช่ '../../base/deployment.yaml'
+  - ../../base
 
-patches:
-  # Patch Deployment เพื่อกำหนด replicas, profile และ labels
-  - target:
-      kind: Deployment
-      name: spring-app-deployment
-    patch: |-
-      - op: replace
-        path: /spec/replicas
-        value: 1
-      - op: replace
-        path: /spec/template/spec/containers/0/env/0/value
-        value: dev
-      - op: add
-        path: /spec/template/metadata/labels/environment
-        value: dev
-      - op: replace
-        path: /spec/template/spec/containers/0/resources/requests/memory
-        value: "256Mi"
-      - op: replace
-        path: /spec/template/spec/containers/0/resources/limits/memory
-        value: "512Mi"
+namePrefix: dev-

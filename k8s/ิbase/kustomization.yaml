@@ -1,0 +1,8 @@
+resources:
+  - deployment.yaml
+  - service.yaml
+
+images:
+  - name: springboot-app
+    newName: springboot-app
+    newTag: latest
