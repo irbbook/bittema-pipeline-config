@@ -3,33 +3,31 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
 resources:
-  - ../../base # Reference to the base manifests
+  - ../../base/deployment.yaml # <-- แก้ไขตรงนี้: ระบุชื่อไฟล์ YAML แต่ละไฟล์
+  - ../../base/service.yaml   # <-- เพิ่มบรรทัดนี้: ระบุชื่อไฟล์ YAML แต่ละไฟล์
 
 patches:
+  # Patch Deployment เพื่อกำหนด replicas, profile และ labels
   - target:
       kind: Deployment
       name: spring-app-deployment
     patch: |-
       - op: replace
         path: /spec/replicas
-        value: 1 # Only 1 replica for development
+        value: 1 # สำหรับ Dev, อาจจะแค่ 1 replica
       - op: replace
         path: /spec/template/spec/containers/0/env/0/value
-        value: dev # Set Spring profile to 'dev'
-      - op: add # Add an environment label
+        value: dev # กำหนด Spring Profile เป็น 'dev'
+      - op: add # เพิ่ม label environment: dev
         path: /spec/template/metadata/labels/environment
         value: dev
+      - op: replace # อาจจะลด resource limits/requests สำหรับ Dev
+        path: /spec/template/spec/containers/0/resources/requests/memory
+        value: "256Mi"
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/limits/memory
+        value: "512Mi"
 
-# You might want to expose dev environment with a NodePort for easy access
-# patchesStrategicMerge:
-#   - |-
-#     apiVersion: v1
-#     kind: Service
-#     metadata:
-#       name: spring-app-service
-#     spec:
-#       type: NodePort
-#       ports:
-#       - port: 80
-#         targetPort: 8080
-#         nodePort: 30080 # Choose an available NodePort (30000-32767)
+# หากคุณมีไฟล์ Manifests เฉพาะ Dev เพิ่มเติม (เช่น dev-ingress.yaml)
+# ให้เพิ่มเข้าไปที่นี่เช่นกัน:
+# - dev-ingress.yaml
