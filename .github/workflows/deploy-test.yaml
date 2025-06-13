@@ -1,0 +1,61 @@
+name: Deploy to K8s via Self-Hosted Runner
+
+on:
+  push:
+    branches:
+      - main # กำหนดให้รันเมื่อมีการ push ไปที่ branch main
+
+  workflow_dispatch: # อนุญาตให้รัน Workflow แบบ manual ได้จากหน้า GitHub
+
+jobs:
+  deploy:
+    # ใช้ label ที่คุณตั้งค่าไว้สำหรับ runner ของคุณ
+    runs-on: self-hosted # ใช้ self-hosted runner
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Kubeconfig
+      # สร้าง ~/.kube และไฟล์ config จาก secret
+      run: |
+        mkdir -p ~/.kube
+        echo "${{ secrets.KUBECONFIG_BASE64 }}" | base64 -d > ~/.kube/config
+        chmod 600 ~/.kube/config
+      # ตรวจสอบให้แน่ใจว่าไฟล์ ~/.kube/config มีสิทธิ์ที่ถูกต้อง
+
+    - name: Verify kubectl connection
+      run: kubectl cluster-info
+      # คำสั่งนี้จะตรวจสอบว่า kubectl สามารถเชื่อมต่อกับ K8s cluster ได้หรือไม่
+
+    - name: Get K8s Nodes
+      run: kubectl get nodes
+      # ลองเรียกดู node ใน cluster เพื่อยืนยันว่าทำงานได้จริง
+
+    - name: Deploy a Sample Application (Optional)
+      # สร้างไฟล์ deployment.yaml หรือใช้ไฟล์ที่มีอยู่
+      # ตัวอย่างไฟล์ Nginx deployment
+      run: |
+        cat <<EOF > nginx-deployment.yaml
+        apiVersion: apps/v1
+        kind: Deployment
+        metadata:
+          name: nginx-deployment
+        spec:
+          selector:
+            matchLabels:
+              app: nginx
+          replicas: 1
+          template:
+            metadata:
+              labels:
+                app: nginx
+            spec:
+              containers:
+              - name: nginx
+                image: nginx:latest
+                ports:
+                - containerPort: 80
+        EOF
+        kubectl apply -f nginx-deployment.yaml
+      # คุณสามารถเปลี่ยนเป็น deploy แอปพลิเคชันของคุณเองได้
