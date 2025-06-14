@@ -19,13 +19,13 @@ jobs:
       #   with:
       #     version: 'latest'
 
-      # - name: Configure kubeconfig
-      #   run: |
-      #     mkdir -p $HOME/.kube
-      #     echo "${{ secrets.KUBECONFIG_CONTENT }}" > $HOME/.kube/config
-      #     chmod 600 $HOME/.kube/config
+      - name: Configure kubeconfig
+        run: |
+          mkdir -p $HOME/.kube
+          echo "${{ secrets.KUBECONFIG_CONTENT }}" > $HOME/.kube/config
+          chmod 600 $HOME/.kube/config
 
-      # - name: Deploy to Kubernetes
-      #   run: |
-      #     kubectl apply -f k8s/deployment.yml
-      #     kubectl apply -f k8s/service.yml
+      - name: Deploy to Kubernetes
+        run: |
+          kubectl apply -f k8s/deployment.yml
+          kubectl apply -f k8s/service.yml
